@@ -6,55 +6,8 @@ import { getUserShelf } from '../services/shelves';
 import { getUserReviews } from '../services/reviews';
 import { getBookDetails } from '../services/books';
 import ReviewList from '../components/ReviewList';
-
-const BookCard = ({ bookId, onBookClick }) => {
-  const [book, setBook] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadBook = async () => {
-      try {
-        const bookData = await getBookDetails(bookId);
-        setBook(bookData);
-      } catch (error) {
-        console.error('Error loading book:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadBook();
-  }, [bookId]);
-
-  if (loading) {
-    return (
-      <div className="book-card animate-pulse">
-        <div className="w-full h-64 bg-gray-200"></div>
-      </div>
-    );
-  }
-
-  if (!book) return null;
-
-  return (
-    <div
-      className="book-card"
-      onClick={() => onBookClick(book.googleBooksId)}
-    >
-      <img
-        src={book.thumbnail || '/placeholder-book.png'}
-        alt={book.title}
-        className="w-full h-64 object-cover"
-      />
-      <div className="p-4">
-        <h3 className="font-semibold text-lg mb-1 line-clamp-2">{book.title}</h3>
-        <p className="text-gray-600 text-sm">
-          {book.authors?.join(', ') || 'Unknown Author'}
-        </p>
-      </div>
-    </div>
-  );
-};
+import { Bookshelf } from './Shelves';
+import { DndContext } from '@dnd-kit/core';
 
 const Profile = () => {
   const { userId } = useParams();
@@ -69,6 +22,7 @@ const Profile = () => {
   const [reviews, setReviews] = useState([]);
   const [activeTab, setActiveTab] = useState('shelves');
   const [loading, setLoading] = useState(true);
+  const [bookDataMap, setBookDataMap] = useState({});
 
   const profileUserId = userId || currentUser?.uid;
   const isOwnProfile = profileUserId === currentUser?.uid;
@@ -93,6 +47,31 @@ const Profile = () => {
           'read': read,
         });
         setReviews(reviewsData);
+
+        // Load book data for all books
+        const allBookIds = [
+          ...wantToRead.map(e => e.bookId),
+          ...currentlyReading.map(e => e.bookId),
+          ...read.map(e => e.bookId),
+        ];
+        
+        const uniqueBookIds = [...new Set(allBookIds)];
+        const bookDataPromises = uniqueBookIds.map(bookId => 
+          getBookDetails(bookId).catch(err => {
+            console.error(`Error loading book ${bookId}:`, err);
+            return null;
+          })
+        );
+        
+        const bookDataArray = await Promise.all(bookDataPromises);
+        const newBookDataMap = {};
+        bookDataArray.forEach((bookData, index) => {
+          if (bookData) {
+            newBookDataMap[uniqueBookIds[index]] = bookData;
+          }
+        });
+        
+        setBookDataMap(newBookDataMap);
       } catch (error) {
         console.error('Error loading profile:', error);
       } finally {
@@ -127,6 +106,12 @@ const Profile = () => {
   const tabs = [
     { id: 'shelves', label: 'Shelves' },
     { id: 'reviews', label: 'Reviews' },
+  ];
+
+  const shelfConfig = [
+    { status: 'want-to-read', title: 'Want to Read', id: 'shelf-want-to-read' },
+    { status: 'currently-reading', title: 'Currently Reading', id: 'shelf-currently-reading' },
+    { status: 'read', title: 'Read', id: 'shelf-read' },
   ];
 
   return (
@@ -192,64 +177,24 @@ const Profile = () => {
 
       {/* Tab Content */}
       {activeTab === 'shelves' && (
-        <div>
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-barn-brown mb-4">
-              Want to Read ({shelves['want-to-read'].length})
-            </h2>
-            {shelves['want-to-read'].length === 0 ? (
-              <p className="text-gray-500">No books on this shelf.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {shelves['want-to-read'].map((shelfEntry) => (
-                  <BookCard
-                    key={shelfEntry.id}
-                    bookId={shelfEntry.bookId}
-                    onBookClick={handleBookClick}
-                  />
-                ))}
-              </div>
-            )}
+        <DndContext>
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            {shelfConfig.map((config) => (
+              <Bookshelf
+                key={config.status}
+                title={config.title}
+                status={config.status}
+                books={shelves[config.status]}
+                onBookClick={handleBookClick}
+                onMoveToAdjacent={() => {}}
+                onDelete={() => {}}
+                id={config.id}
+                bookDataMap={bookDataMap}
+                readOnly={true}
+              />
+            ))}
           </div>
-
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-barn-brown mb-4">
-              Currently Reading ({shelves['currently-reading'].length})
-            </h2>
-            {shelves['currently-reading'].length === 0 ? (
-              <p className="text-gray-500">No books on this shelf.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {shelves['currently-reading'].map((shelfEntry) => (
-                  <BookCard
-                    key={shelfEntry.id}
-                    bookId={shelfEntry.bookId}
-                    onBookClick={handleBookClick}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold text-barn-brown mb-4">
-              Read ({shelves['read'].length})
-            </h2>
-            {shelves['read'].length === 0 ? (
-              <p className="text-gray-500">No books on this shelf.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {shelves['read'].map((shelfEntry) => (
-                  <BookCard
-                    key={shelfEntry.id}
-                    bookId={shelfEntry.bookId}
-                    onBookClick={handleBookClick}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        </DndContext>
       )}
 
       {activeTab === 'reviews' && (
@@ -277,4 +222,3 @@ const Profile = () => {
 };
 
 export default Profile;
-

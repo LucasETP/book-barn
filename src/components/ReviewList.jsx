@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserProfile } from '../services/users';
 import { getReviewReplies, addReviewReply } from '../services/reviews';
+import { getBookDetails } from '../services/books';
 import { useAuth } from '../contexts/AuthContext';
 
 const ReplyForm = ({ reviewId, onReplyAdded }) => {
@@ -46,8 +47,9 @@ const ReplyForm = ({ reviewId, onReplyAdded }) => {
   );
 };
 
-const ReviewItem = ({ review, currentUserId, isTeacher, bookId }) => {
+const ReviewItem = ({ review, currentUserId, bookId, book }) => {
   const [user, setUser] = useState(null);
+  const [bookData, setBookData] = useState(book || null);
   const [replies, setReplies] = useState([]);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -55,21 +57,37 @@ const ReviewItem = ({ review, currentUserId, isTeacher, bookId }) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const userData = await getUserProfile(review.userId);
+        const userPromise = getUserProfile(review.userId);
+        const repliesPromise = getReviewReplies(review.id);
+        const bookPromise = book
+          ? Promise.resolve(book)
+          : bookId
+            ? getBookDetails(bookId).catch((err) => {
+                console.error('Error loading book data:', err);
+                return null;
+              })
+            : Promise.resolve(null);
+
+        const [userData, repliesData, bookDetails] = await Promise.all([
+          userPromise,
+          repliesPromise,
+          bookPromise,
+        ]);
+
         setUser(userData);
-        
-        const repliesData = await getReviewReplies(review.id);
         setReplies(repliesData);
-        
-        setLoading(false);
+        setBookData(bookDetails);
       } catch (error) {
         console.error('Error loading review data:', error);
         setLoading(false);
+        return;
       }
+      
+      setLoading(false);
     };
     
     loadData();
-  }, [review.id]);
+  }, [review.id, review.userId, bookId, book]);
 
   const handleReplyAdded = async () => {
     const repliesData = await getReviewReplies(review.id);
@@ -110,6 +128,25 @@ const ReviewItem = ({ review, currentUserId, isTeacher, bookId }) => {
             )}
             <span className="text-xs text-gray-500">{formatDate(review.createdAt)}</span>
           </div>
+
+          {bookData && (
+            <Link
+              to={`/book/${bookData.googleBooksId || bookId}`}
+              className="flex items-center gap-3 mb-2 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+            >
+              <img
+                src={bookData.thumbnail || '/placeholder-book.png'}
+                alt={bookData.title}
+                className="w-10 h-14 object-cover rounded shadow-sm"
+              />
+              <div>
+                <p className="text-sm font-semibold text-barn-brown">{bookData.title}</p>
+                <p className="text-xs text-gray-600">
+                  {bookData.authors?.join(', ') || 'Unknown Author'}
+                </p>
+              </div>
+            </Link>
+          )}
           
           {review.reviewText && (
             <p className="text-gray-700 mb-2">{review.reviewText}</p>
@@ -194,7 +231,7 @@ const ReplyItem = ({ reply }) => {
   );
 };
 
-const ReviewList = ({ reviews, currentUserId, isTeacher, bookId }) => {
+const ReviewList = ({ reviews, currentUserId, isTeacher, bookId, bookLookup = {} }) => {
   // Filter out private reviews that user can't see
   const visibleReviews = reviews.filter(review => {
     if (!review.isPrivate) return true;
@@ -214,7 +251,8 @@ const ReviewList = ({ reviews, currentUserId, isTeacher, bookId }) => {
             review={review}
             currentUserId={currentUserId}
             isTeacher={isTeacher}
-            bookId={bookId}
+            bookId={bookId || review.bookId}
+            book={bookLookup[review.bookId]}
           />
         ))
       )}

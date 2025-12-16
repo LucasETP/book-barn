@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 const ReviewForm = ({ onSubmit, onCancel }) => {
   const [rating, setRating] = useState(0);
+  const [hoveredStar, setHoveredStar] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
 
@@ -20,17 +21,30 @@ const ReviewForm = ({ onSubmit, onCancel }) => {
       
       <div className="mb-4">
         <label className="block text-sm font-semibold mb-2">Rating *</label>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              onClick={() => setRating(star)}
-              className={`text-3xl ${star <= rating ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}
-            >
-              ⭐
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setRating(star)}
+                onMouseEnter={() => setHoveredStar(star)}
+                onMouseLeave={() => setHoveredStar(0)}
+                aria-pressed={star === rating}
+                aria-label={`Select ${star} star${star > 1 ? 's' : ''}`}
+                className={`text-3xl rounded-full px-1 transition-colors ${
+                  star <= (hoveredStar || rating) ? 'text-yellow-400' : 'text-gray-300'
+                } ${star === rating ? 'ring-2 ring-barn-brown ring-offset-2' : ''}`}
+              >
+                ⭐
+              </button>
+            ))}
+          </div>
+          <div className="text-sm font-semibold text-barn-brown min-w-[120px]">
+            {hoveredStar || rating
+              ? `${hoveredStar || rating} star${(hoveredStar || rating) > 1 ? 's' : ''} selected`
+              : 'No rating selected'}
+          </div>
         </div>
       </div>
       

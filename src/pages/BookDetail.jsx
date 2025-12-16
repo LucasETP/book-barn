@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getBookDetails, ensureBookInFirestore } from '../services/books';
 import { addBookToShelf, getBookShelfStatus, removeBookFromShelf } from '../services/shelves';
 import { getBookReviews, createReview, getAverageRating } from '../services/reviews';
-import { getUserProfile } from '../services/users';
 import ReviewForm from '../components/ReviewForm';
 import ReviewList from '../components/ReviewList';
 
@@ -187,7 +187,10 @@ const BookDetail = () => {
         {book.description && (
           <div className="mt-6 pt-6 border-t">
             <h2 className="text-xl font-semibold mb-2">Description</h2>
-            <p className="text-gray-700 leading-relaxed">{book.description}</p>
+            <div 
+              className="text-gray-700 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(book.description) }}
+            />
           </div>
         )}
       </div>
@@ -214,6 +217,7 @@ const BookDetail = () => {
             currentUserId={currentUser?.uid}
             isTeacher={userProfile?.isTeacher}
             bookId={bookId}
+            bookLookup={{ [bookId]: book }}
           />
         )}
       </div>

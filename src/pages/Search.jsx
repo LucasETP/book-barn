@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchBooks } from '../services/books';
+
+const MIN_QUERY_LENGTH = 2; // Minimum characters before searching
+const DEBOUNCE_DELAY = 500; // Wait 500ms after user stops typing
 
 const BookCard = ({ book }) => {
   const navigate = useNavigate();
@@ -33,22 +36,58 @@ const Search = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const debounceTimerRef = useRef(null);
+
+  // Debounced search effect
+  useEffect(() => {
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    const trimmedQuery = query.trim();
+    
+    // If query is too short, clear results and don't search
+    if (trimmedQuery.length < MIN_QUERY_LENGTH) {
+      setResults([]);
+      setLoading(false);
+      setSearched(false);
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    setLoading(true);
+    setSearched(true);
+
+    // Debounce the actual API call
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const books = await searchBooks(trimmedQuery);
+        setResults(books);
+      } catch (error) {
+        console.error('Search error:', error);
+        // Only show error if it's not an abort error (user started new search)
+        if (error.name !== 'AbortError') {
+          alert('Failed to search books. Please try again.');
+        }
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, DEBOUNCE_DELAY);
+
+    // Cleanup function
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [query]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setSearched(true);
-    try {
-      const books = await searchBooks(query);
-      setResults(books);
-    } catch (error) {
-      console.error('Search error:', error);
-      alert('Failed to search books. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // The useEffect will handle the search automatically
+    // This just prevents form submission
   };
 
   return (
@@ -61,17 +100,24 @@ const Search = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for books by title, author, or ISBN..."
+            placeholder={`Search for books by title, author, or ISBN... (min ${MIN_QUERY_LENGTH} characters)`}
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-barn-brown"
           />
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary px-8"
-          >
-            {loading ? 'Searching...' : 'Search'}
-          </button>
+          {query.trim().length >= MIN_QUERY_LENGTH && (
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary px-8"
+            >
+              {loading ? 'Searching...' : 'Search'}
+            </button>
+          )}
         </div>
+        {query.trim().length > 0 && query.trim().length < MIN_QUERY_LENGTH && (
+          <p className="text-sm text-gray-500 mt-2">
+            Please enter at least {MIN_QUERY_LENGTH} characters to search
+          </p>
+        )}
       </form>
 
       {loading && (

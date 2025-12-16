@@ -28,15 +28,8 @@ export const getActivityFeed = async (limitCount = 20) => {
       limit(limitCount)
     );
     const reviewsSnapshot = await getDocs(reviewsQuery);
-    
-    // Get recent replies
-    const repliesRef = collection(db, 'review_replies');
-    const repliesQuery = query(
-      repliesRef,
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
-    );
-    const repliesSnapshot = await getDocs(repliesQuery);
+
+    // Not gonna track replies because that feels invasive lol
     
     // Combine and format activities
     const activities = [];
@@ -63,19 +56,6 @@ export const getActivityFeed = async (limitCount = 20) => {
         bookId: data.bookId,
         rating: data.rating,
         reviewText: data.reviewText,
-        timestamp: data.createdAt,
-        createdAt: data.createdAt,
-      });
-    });
-    
-    repliesSnapshot.forEach(doc => {
-      const data = doc.data();
-      activities.push({
-        id: doc.id,
-        type: 'reply',
-        userId: data.userId,
-        reviewId: data.reviewId,
-        replyText: data.replyText,
         timestamp: data.createdAt,
         createdAt: data.createdAt,
       });

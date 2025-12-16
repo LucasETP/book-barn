@@ -25,4 +25,42 @@
   .book-card {
     @apply bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer;
   }
+  
+  .bookshelf-wood {
+    background: linear-gradient(
+      to bottom,
+      #8B4513 0%,
+      #A0522D 25%,
+      #8B4513 50%,
+      #654321 75%,
+      #8B4513 100%
+    );
+    position: relative;
+  }
+  
+  .bookshelf-wood::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.1) 2px,
+        rgba(0, 0, 0, 0.1) 4px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        rgba(101, 67, 33, 0.2) 1px,
+        rgba(101, 67, 33, 0.2) 2px
+      );
+    opacity: 0.3;
+    pointer-events: none;
+  }
 }
